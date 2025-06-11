@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Call Back & Interaction Scheduler</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Call Back & Interaction Scheduler</h1>
+      <div class="header-actions">
+        <button id="theme-toggle" aria-label="Toggle dark mode">
+          <svg viewBox="0 0 24 24"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+        </button>
+        <button onclick="exportData()">Export</button>
+        <button onclick="document.getElementById('importFile').click()">Import</button>
+        <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+      </div>
+    </header>
+    <div id="message" class="message" role="alert" aria-live="assertive"></div>
+
+    <div class="main-content">
+      <aside id="recent-activity" class="sidebar">
+        <h2>Recent Activity</h2>
+        <ul id="activity-log"></ul>
+      </aside>
+      <main>
+        <nav role="navigation" aria-label="Main navigation">
+          <ul>
+            <li><button id="nav-callbacks" class="active" aria-current="page">
+              <svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.91 15.91 0 006.59 6.59l2.2-2.2a1 1 0 011.1-.27c1.15.38 2.39.58 3.65.58a1 1 0 011 1v3.5a1 1 0 01-1 1A17 17 0 013 7a1 1 0 011-1h3.5a1 1 0 011 1c0 1.26.2 2.5.58 3.65a1 1 0 01-.27 1.1l-2.2 2.2z"/></svg>
+              Callbacks
+            </button></li>
+            <li><button id="nav-interactions">
+              <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-9 14H6v-2h4v2zm0-4H6v-2h4v2zm0-4H6V7h4v2zm8 8h-4v-2h4v2zm0-4h-4v-2h4v2zm0-4h-4V7h4v2z"/></svg>
+              Interactions
+            </button></li>
+            <li><button id="nav-relationships">
+              <svg viewBox="0 0 24 24"><path d="M17 7h-4v2h4a1 1 0 011 1v4h2V10a3 3 0 00-3-3zm-7 10H6a3 3 0 01-3-3v-4h2v4a1 1 0 001 1h4v2zm2-2a3 3 0 110-6 3 3 0 010 6zm0-4a1 1 0 100 2 1 1 0 000-2z"/></svg>
+              Relationships
+            </button></li>
+          </ul>
+        </nav>
+
+        <div id="callbacks-section" class="section active">
+          <button class="form-toggle" onclick="toggleForm('callbackForm')" aria-expanded="false">Add New Callback</button>
+          <form id="callbackForm" aria-labelledby="callbackFormTitle">
+            <h2 id="callbackFormTitle">Callback Details</h2>
+            <div class="form-grid">
+              <label for="ban">BAN/Account #:
+                <input type="text" id="ban" required aria-describedby="banError">
+                <span id="banError" class="error"></span>
+              </label>
+              <label for="name">Name:
+                <input type="text" id="name" required aria-describedby="nameError">
+                <span id="nameError" class="error"></span>
+              </label>
+              <label for="phone">Phone:
+                <input type="text" id="phone" pattern="[0-9]{10}" title="10-digit phone number" aria-describedby="phoneError">
+                <span id="phoneError" class="error"></span>
+              </label>
+              <label for="time">Callback Time:
+                <input type="datetime-local" id="time" required aria-describedby="timeError">
+                <button type="button" class="quick-fill" onclick="fillToday('time')">Today</button>
+                <span id="timeError" class="error"></span>
+              </label>
+              <label for="priority">Priority:
+                <select id="priority" aria-describedby="priorityError">
+                  <option value="High">High</option>
+                  <option value="Medium" selected>Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+                <span id="priorityError" class="error"></span>
+              </label>
+              <label for="notes">Notes:
+                <div class="notes-wrapper">
+                  <textarea id="notes" rows="3" aria-describedby="notesError"></textarea>
+                  <div class="tag-suggestions">
+                    <button type="button" onclick="insertTag('notes', 'Urgent')">Urgent</button>
+                    <button type="button" onclick="insertTag('notes', 'Billing')">Billing</button>
+                    <button type="button" onclick="insertTag('notes', 'Technical')">Technical</button>
+                    <select onchange="insertTemplate('notes', this.value); this.value=''">
+                      <option value="">Templates</option>
+                      <option value="Customer requested callback">Customer requested</option>
+                      <option value="Issue escalated to support">Escalated</option>
+                    </select>
+                  </div>
+                </div>
+                <span id="notesError" class="error"></span>
+              </label>
+            </div>
+            <div class="form-actions">
+              <button type="submit">Save (Ctrl+S)</button>
+              <button type="button" class="secondary" onclick="resetCallbackForm()">Cancel</button>
+            </div>
+          </form>
+
+          <div class="table-container">
+            <div class="table-controls">
+              <label><input type="checkbox" id="select-all-callbacks" onchange="toggleSelectAll('callback')">Select All</label>
+              <select id="bulk-action-callbacks" disabled>
+                <option value="">Bulk Actions</option>
+                <option value="delete">Delete Selected</option>
+                <option value="priority-high">Set Priority High</option>
+                <option value="priority-medium">Set Priority Medium</option>
+                <option value="priority-low">Set Priority Low</option>
+              </select>
+              <button onclick="applyBulkAction('callback')" disabled id="apply-bulk-callbacks">Apply</button>
+              <select id="callbackSearchField" aria-label="Search Field">
+                <option value="all">All Fields</option>
+                <option value="id">ID</option>
+                <option value="ban">BAN</option>
+                <option value="name">Name</option>
+                <option value="phone">Phone</option>
+                <option value="notes">Notes</option>
+              </select>
+              <input type="text" id="callbackSearch" placeholder="Search Callbacks" aria-label="Search Callbacks">
+              <select id="callbackSort" aria-label="Sort Callbacks">
+                <option value="priority-asc">Priority (High to Low)</option>
+                <option value="priority-desc">Priority (Low to High)</option>
+                <option value="time-asc">Time (Earliest First)</option>
+                <option value="time-desc">Time (Latest First)</option>
+                <option value="ban-asc">BAN (A-Z)</option>
+                <option value="ban-desc">BAN (Z-A)</option>
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+              </select>
+              <button onclick="resetCallbackSearch()">Clear Filters</button>
+            </div>
+            <div id="callback-follow-ups" class="follow-up-container"></div>
+            <table id="callbackTable" role="grid" aria-label="Callbacks Table">
+              <thead>
+                <tr>
+                  <th><input type="checkbox" aria-label="Select all callbacks"></th>
+                  <th>ID</th><th>BAN</th><th>Name</th><th>Phone</th><th>Time</th><th>Priority</th><th>Notes</th><th>Linked Interaction</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="interactions-section" class="section">
+          <button class="form-toggle" onclick="toggleForm('interactionForm')" aria-expanded="false">Add New Interaction</button>
+          <form id="interactionForm" aria-labelledby="interactionFormTitle">
+            <h2 id="interactionFormTitle">Interaction Details</h2>
+            <div class="form-grid">
+              <label for="callId">Genesys Call ID:
+                <input type="text" id="callId" required aria-describedby="callIdError">
+                <span id="callIdError" class="error"></span>
+              </label>
+              <label for="interactionId">Interaction ID:
+                <input type="text" id="interactionId" required aria-describedby="interactionIdError">
+                <span id="interactionIdError" class="error"></span>
+              </label>
+              <label for="iBan">BAN/Account #:
+                <input type="text" id="iBan" required aria-describedby="iBanError">
+                <span id="iBanError" class="error"></span>
+              </label>
+              <label for="linkedCallbackId">Linked Callback ID:
+                <select id="linkedCallbackId" aria-describedby="linkedCallbackIdError">
+                  <option value="">None</option>
+                </select>
+                <span id="linkedCallbackIdError" class="error"></span>
+              </label>
+              <label for="iDate">Date:
+                <input type="date" id="iDate" required aria-describedby="iDateError">
+                <button type="button" class="quick-fill" onclick="fillToday('iDate')">Today</button>
+                <span id="iDateError" class="error"></span>
+              </label>
+              <label for="provider">Provider:
+                <select id="provider" aria-describedby="providerError">
+                  <option value="Fido">Fido</option>
+                  <option value="Rogers">Rogers</option>
+                </select>
+                <span id="providerError" class="error"></span>
+              </label>
+              <fieldset id="serviceOptions">
+                <legend>Services</legend>
+              </fieldset>
+              <label for="iNotes">Notes:
+                <div class="notes-wrapper">
+                  <textarea id="iNotes" rows="3" aria-describedby="iNotesError"></textarea>
+                  <div class="tag-suggestions">
+                    <button type="button" onclick="insertTag('iNotes', 'Urgent')">Urgent</button>
+                    <button type="button" onclick="insertTag('iNotes', 'Billing')">Billing</button>
+                    <button type="button" onclick="insertTag('iNotes', 'Technical')">Technical</button>
+                    <select onchange="insertTemplate('iNotes', this.value); this.value=''">
+                      <option value="">Templates</option>
+                      <option value="Customer reported issue">Reported issue</option>
+                      <option value="Interaction escalated">Escalated</option>
+                    </select>
+                  </div>
+                </div>
+                <span id="iNotesError" class="error"></span>
+              </label>
+            </div>
+            <div class="form-actions">
+              <button type="submit">Save (Ctrl+S)</button>
+              <button type="button" class="secondary" onclick="resetInteractionForm()">Cancel</button>
+            </div>
+          </form>
+
+          <div class="table-container">
+            <div class="table-controls">
+              <label><input type="checkbox" id="select-all-interactions" onchange="toggleSelectAll('interaction')">Select All</label>
+              <select id="bulk-action-interactions" disabled>
+                <option value="">Bulk Actions</option>
+                <option value="delete">Delete Selected</option>
+              </select>
+              <button onclick="applyBulkAction('interaction')" disabled id="apply-bulk-interactions">Apply</button>
+              <select id="interactionSearchField" aria-label="Search Field">
+                <option value="all">All Fields</option>
+                <option value="id">ID</option>
+                <option value="callId">Call ID</option>
+                <option value="interactionId">Interaction ID</option>
+                <option value="ban">BAN</option>
+                <option value="notes">Notes</option>
+              </select>
+              <input type="text" id="interactionSearch" placeholder="Search Interactions" aria-label="Search Interactions">
+              <select id="interactionSort" aria-label="Sort Interactions">
+                <option value="date-asc">Date (Earliest First)</option>
+                <option value="date-desc">Date (Latest First)</option>
+                <option value="ban-asc">BAN (A-Z)</option>
+                <option value="ban-desc">BAN (Z-A)</option>
+                <option value="provider-asc">Provider (A-Z)</option>
+                <option value="provider-desc">Provider (Z-A)</option>
+              </select>
+              <button onclick="resetInteractionSearch()">Clear Filters</button>
+            </div>
+            <div id="interaction-follow-ups" class="follow-up-container"></div>
+            <table id="interactionTable" role="grid" aria-label="Interactions Table">
+              <thead>
+                <tr>
+                  <th><input type="checkbox" aria-label="Select all interactions"></th>
+                  <th>ID</th><th>Call ID</th><th>Interaction ID</th><th>BAN</th><th>Linked Callback</th><th>Date</th><th>Provider</th><th>Services</th><th>Notes</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="relationships-section" class="section">
+          <h2>Callback–Interaction Relationships</h2>
+          <div class="table-container">
+            <div class="table-controls">
+              <select id="relationshipSearchField" aria-label="Search Field">
+                <option value="all">All Fields</option>
+                <option value="callbackId">Callback ID</option>
+                <option value="interactionId">Interaction ID</option>
+                <option value="ban">BAN</option>
+                <option value="notes">Notes</option>
+              </select>
+              <input type="text" id="relationshipSearch" placeholder="Search Relationships" aria-label="Search Relationships">
+              <select id="relationshipSort" aria-label="Sort Relationships">
+                <option value="callbackTime-asc">Callback Time (Earliest First)</option>
+                <option value="callbackTime-desc">Callback Time (Latest First)</option>
+                <option value="interactionDate-asc">Interaction Date (Earliest First)</option>
+                <option value="interactionDate-desc">Interaction Date (Latest First)</option>
+                <option value="ban-asc">BAN (A-Z)</option>
+                <option value="ban-desc">BAN (Z-A)</option>
+              </select>
+              <button onclick="resetRelationshipSearch()">Clear Filters</button>
+            </div>
+            <table id="relationshipTable" role="grid" aria-label="Relationships Table">
+              <thead>
+                <tr>
+                  <th>Callback ID</th><th>Interaction ID</th><th>BAN</th><th>Callback Time</th><th>Interaction Date</th><th>Notes</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
